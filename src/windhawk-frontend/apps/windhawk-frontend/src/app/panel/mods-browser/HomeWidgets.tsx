@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Select, theme } from 'antd';
+import { Button, Input, Select, theme } from 'antd';
 import type { InstalledModEntry } from '../shared/installedMod';
 import { modIsRunning } from '../shared/nukedMod';
 
@@ -17,6 +17,54 @@ function readPins(): string[] {
     const value: unknown = JSON.parse(localStorage.getItem(pinKey) || '[]');
     return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
   } catch { return []; }
+}
+
+
+function savedValue(key: string) {
+  try { return localStorage.getItem(key) || ''; } catch { return ''; }
+}
+
+function saveValue(key: string, value: string) {
+  try { localStorage.setItem(key, value); return true; } catch { return false; }
+}
+
+function Scratchpad() {
+  const key = 'windhawk.home.scratchpad';
+  const [note, setNote] = useState(() => savedValue(key));
+  const [saved, setSaved] = useState(true);
+  return <article><h3><label htmlFor="home-note">Quick note</label></h3>
+    <Input.TextArea id="home-note" value={note} autoSize={{ minRows: 2, maxRows: 5 }}
+      placeholder="Remember a mod or setting…" onChange={event => {
+        const value = event.target.value;
+        setNote(value);
+        setSaved(saveValue(key, value));
+      }} />
+    {!saved && <small role="status">Saved for this session only</small>}
+  </article>;
+}
+
+function FocusTimer() {
+  const key = 'windhawk.home.focusDeadline';
+  const [deadline, setDeadline] = useState(() => Number(savedValue(key)) || 0);
+  const [now, setNow] = useState(Date.now);
+  const running = deadline > now;
+  useEffect(() => {
+    if (!running) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [running]);
+  const seconds = Math.max(0, Math.ceil((deadline - now) / 1000));
+  const remaining = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  return <article><h3>Focus timer</h3>
+    <div role="timer">{running ? remaining : deadline ? 'Session complete' : '25:00'}</div>
+    <Button onClick={() => {
+      const start = Date.now();
+      const next = running ? 0 : start + 25 * 60_000;
+      setNow(start);
+      setDeadline(next);
+      saveValue(key, String(next));
+    }}>{running ? 'Cancel session' : 'Start 25 minutes'}</Button>
+  </article>;
 }
 
 export function WidgetShelf({ mods, filters, filter, open }: {
@@ -46,6 +94,8 @@ export function WidgetShelf({ mods, filters, filter, open }: {
       optionFilterProp="label" onChange={(ids: string[]) => { setPins(ids); try { localStorage.setItem(pinKey, JSON.stringify(ids)); } catch { /* Session pins still work. */ } }} />
       {pins.filter(id => mods?.[id]).map(id => <Button type="link" key={id} onClick={() => open(id)}>{mods?.[id].metadata?.name || id}</Button>)}
     </article>
+    <FocusTimer />
+    <Scratchpad />
   </Shelf>;
 }
 
