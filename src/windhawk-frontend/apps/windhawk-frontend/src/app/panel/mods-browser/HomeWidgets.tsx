@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Button, Input, Select, theme } from 'antd';
 import type { InstalledModEntry } from '../shared/installedMod';
+import { getDisplayModId, isLocalModId } from '@app/utils';
 import { modIsRunning } from '../shared/nukedMod';
 
 const Shelf = styled.section`
@@ -12,9 +13,9 @@ const Shelf = styled.section`
   time { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
 `;
 const pinKey = 'windhawk.home.pinned';
-function readPins(): string[] {
+function readIds(key: string): string[] {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(pinKey) || '[]');
+    const value: unknown = JSON.parse(localStorage.getItem(key) || '[]');
     return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string') : [];
   } catch { return []; }
 }
@@ -67,19 +68,32 @@ function FocusTimer() {
   </article>;
 }
 
-export function WidgetShelf({ mods, filters, filter, open }: {
+export function WidgetShelf({ mods, viewedId, filters, filter, open }: {
   mods?: Record<string, InstalledModEntry> | null;
+  viewedId?: string;
   filters: Set<string>; filter: (status: string) => void; open: (id: string) => void;
 }) {
   const { token } = theme.useToken();
   const [now, setNow] = useState(() => new Date());
-  const [pins, setPins] = useState(readPins);
+  const [pins, setPins] = useState(() => readIds(pinKey));
+  const recentKey = 'windhawk.home.recentMods';
+  const [recent, setRecent] = useState(() => readIds(recentKey));
+  useEffect(() => {
+    if (!viewedId) return;
+    const next = [viewedId, ...readIds(recentKey).filter(id => id !== viewedId)].slice(0, 3);
+    setRecent(next);
+    saveValue(recentKey, JSON.stringify(next));
+  }, [viewedId]);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 15000);
     return () => window.clearInterval(timer);
   }, []);
   const entries = Object.entries(mods ?? {});
   const enabled = entries.filter(([, mod]) => modIsRunning(mod.config)).length;
+  const recentIds = recent.filter(id => mods?.[id]);
+  const localOptions = entries.filter(([id]) => isLocalModId(id)).map(([id, mod]) => ({
+    value: id, label: mod.metadata?.name || getDisplayModId(id),
+  }));
   return <Shelf aria-label="Workspace widgets" style={{
     '--widget-bg': token.colorFillQuaternary, '--widget-border': token.colorBorderSecondary
   } as React.CSSProperties}>
@@ -94,6 +108,18 @@ export function WidgetShelf({ mods, filters, filter, open }: {
       optionFilterProp="label" onChange={(ids: string[]) => { setPins(ids); try { localStorage.setItem(pinKey, JSON.stringify(ids)); } catch { /* Session pins still work. */ } }} />
       {pins.filter(id => mods?.[id]).map(id => <Button type="link" key={id} onClick={() => open(id)}>{mods?.[id].metadata?.name || id}</Button>)}
     </article>
+    {recentIds.length > 0 && <article>
+      <h3>Recently viewed</h3>
+      {recentIds.map(id => <Button type="link" key={id} onClick={() => open(id)}>
+        {mods?.[id].metadata?.name || getDisplayModId(id)}
+      </Button>)}
+    </article>}
+    {localOptions.length > 0 && <article>
+      <h3>Local mods</h3>
+      <Select<string> aria-label="Open a local mod" placeholder="Open a local mod"
+        style={{ width: '100%' }} showSearch optionFilterProp="label"
+        options={localOptions} value={undefined} onChange={open} />
+    </article>}
     <FocusTimer />
     <Scratchpad />
   </Shelf>;
