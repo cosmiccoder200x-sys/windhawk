@@ -1,3 +1,4 @@
+import { AppearancePreview, WidgetShelf } from './HomeWidgets';
 import { AppUISettingsContext } from '@app/appUISettings';
 import { DropdownModal, InputWithContextMenu } from '@app/components/InputWithContextMenu';
 import { ProgressSpin } from '@app/components/ProgressSpin';
@@ -971,6 +972,13 @@ function ModsBrowserLocal({ ContentWrapper }: Props) {
     <>
       <ContentWrapper $hidden={!!displayedModId}>
         <ModsContainer $extraBottomPadding={!devModeOptOut}>
+          <WidgetShelf mods={installedMods} filters={filterOptions} open={id => navigate('/mods/local/' + id)} filter={status => setFilterOptions(previous => {
+            const next = new Set(previous);
+            next.delete('enabled');
+            next.delete('disabled');
+            if (!previous.has(status)) next.add(status);
+            return next;
+          })} />
           <SectionHeader>
             <h2>
               <SectionIcon icon={faHdd} /> {t('home.installedMods.title')}
@@ -1182,6 +1190,7 @@ function ModsBrowserLocal({ ContentWrapper }: Props) {
               <SectionIcon icon={faStar} /> {t('home.featuredMods.title')}
             </h2>
           </SectionHeader>
+          <AppearancePreview open={id => navigate('/mods-browser/' + id)} />
           {featuredModsFilteredAndSorted === undefined ? (
             <ProgressSpin size="large" description={t('general.status.loading')} />
           ) : featuredModsFilteredAndSorted === null ? (
