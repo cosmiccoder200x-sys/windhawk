@@ -972,7 +972,7 @@ function ModsBrowserLocal({ ContentWrapper }: Props) {
     <>
       <ContentWrapper $hidden={!!displayedModId}>
         <ModsContainer $extraBottomPadding={!devModeOptOut}>
-          <WidgetShelf mods={installedMods} filters={filterOptions} open={id => navigate('/mods/local/' + id)} filter={status => setFilterOptions(previous => {
+          <WidgetShelf viewedId={showsInstalledMod ? displayedModId : undefined} mods={installedMods} filters={filterOptions} open={id => navigate('/mods/local/' + id)} filter={status => setFilterOptions(previous => {
             const next = new Set(previous);
             next.delete('enabled');
             next.delete('disabled');
